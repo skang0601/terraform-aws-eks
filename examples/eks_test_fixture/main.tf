@@ -3,7 +3,7 @@ terraform {
 }
 
 provider "aws" {
-  version = ">= 1.24.0"
+  version = ">= 1.47.0"
   region  = "${var.region}"
 }
 
@@ -39,17 +39,26 @@ locals {
   #   },
   # ]
 
-  worker_groups = [
+  launch_configuration_worker_groups = [
     {
-      instance_type       = "t2.small"
-      additional_userdata = "echo foo bar"
-      subnets             = "${join(",", module.vpc.private_subnets)}"
+      # This will launch an autoscaling group with only On-Demand instances
+      instance_type        = "t2.small"
+      additional_userdata  = "echo foo bar"
+      subnets              = "${join(",", module.vpc.private_subnets)}"
+      asg_desired_capacity = "2"
     },
+  ]
+  launch_template_worker_groups = [
     {
-      instance_type                 = "t2.small"
-      additional_userdata           = "echo foo bar"
-      subnets                       = "${join(",", module.vpc.private_subnets)}"
-      additional_security_group_ids = "${aws_security_group.worker_group_mgmt_one.id},${aws_security_group.worker_group_mgmt_two.id}"
+      # This will launch an autoscaling group with only Spot Fleet instances
+      instance_type                            = "t2.small"
+      additional_userdata                      = "echo foo bar"
+      subnets                                  = "${join(",", module.vpc.private_subnets)}"
+      additional_security_group_ids            = "${aws_security_group.worker_group_mgmt_one.id},${aws_security_group.worker_group_mgmt_two.id}"
+      override_instance_type                   = "t3.small"
+      asg_desired_capacity                     = "2"
+      spot_instance_pools                      = 10
+      on_demand_percentage_above_base_capacity = "0"
     },
   ]
   tags = {
@@ -127,15 +136,17 @@ module "vpc" {
 }
 
 module "eks" {
-  source                               = "../.."
-  cluster_name                         = "${local.cluster_name}"
-  subnets                              = ["${module.vpc.private_subnets}"]
-  tags                                 = "${local.tags}"
-  vpc_id                               = "${module.vpc.vpc_id}"
-  worker_groups                        = "${local.worker_groups}"
-  worker_group_count                   = "2"
-  worker_additional_security_group_ids = ["${aws_security_group.all_worker_mgmt.id}"]
-  map_roles                            = "${var.map_roles}"
-  map_users                            = "${var.map_users}"
-  map_accounts                         = "${var.map_accounts}"
+  source                                  = "../.."
+  cluster_name                            = "${local.cluster_name}"
+  subnets                                 = ["${module.vpc.private_subnets}"]
+  tags                                    = "${local.tags}"
+  vpc_id                                  = "${module.vpc.vpc_id}"
+  worker_groups                          = "${local.launch_configuration_worker_groups}"
+  worker_groups_launch_template           = "${local.launch_template_worker_groups}"
+  worker_group_count = "1"
+  worker_group_launch_template_count      = "1"
+  worker_additional_security_group_ids    = ["${aws_security_group.all_worker_mgmt.id}"]
+  map_roles                               = "${var.map_roles}"
+  map_users                               = "${var.map_users}"
+  map_accounts                            = "${var.map_accounts}"
 }

@@ -1,3 +1,5 @@
+# Worker Groups using Launch Configurations
+
 resource "aws_autoscaling_group" "workers" {
   name_prefix           = "${aws_eks_cluster.this.name}-${lookup(var.worker_groups[count.index], "name", count.index)}"
   desired_capacity      = "${lookup(var.worker_groups[count.index], "asg_desired_capacity", local.workers_group_defaults["asg_desired_capacity"])}"
@@ -32,7 +34,7 @@ resource "aws_launch_configuration" "workers" {
   image_id                    = "${lookup(var.worker_groups[count.index], "ami_id", local.workers_group_defaults["ami_id"])}"
   instance_type               = "${lookup(var.worker_groups[count.index], "instance_type", local.workers_group_defaults["instance_type"])}"
   key_name                    = "${lookup(var.worker_groups[count.index], "key_name", local.workers_group_defaults["key_name"])}"
-  user_data_base64            = "${base64encode(element(data.template_file.userdata.*.rendered, count.index))}"
+  user_data_base64            = "${base64encode(element(data.template_file.launch_configuration_userdata.*.rendered, count.index))}"
   ebs_optimized               = "${lookup(var.worker_groups[count.index], "ebs_optimized", lookup(local.ebs_optimized, lookup(var.worker_groups[count.index], "instance_type", local.workers_group_defaults["instance_type"]), false))}"
   enable_monitoring           = "${lookup(var.worker_groups[count.index], "enable_monitoring", local.workers_group_defaults["enable_monitoring"])}"
   spot_price                  = "${lookup(var.worker_groups[count.index], "spot_price", local.workers_group_defaults["spot_price"])}"
@@ -49,6 +51,12 @@ resource "aws_launch_configuration" "workers" {
     iops                  = "${lookup(var.worker_groups[count.index], "root_iops", local.workers_group_defaults["root_iops"])}"
     delete_on_termination = true
   }
+}
+
+resource "aws_iam_instance_profile" "workers" {
+  name_prefix = "${aws_eks_cluster.this.name}"
+  role        = "${lookup(var.worker_groups[count.index], "iam_role_id",  lookup(local.workers_group_defaults, "iam_role_id"))}"
+  count       = "${var.worker_group_count}"
 }
 
 resource "aws_security_group" "workers" {
@@ -108,12 +116,6 @@ resource "aws_iam_role" "workers" {
   name_prefix           = "${aws_eks_cluster.this.name}"
   assume_role_policy    = "${data.aws_iam_policy_document.workers_assume_role_policy.json}"
   force_detach_policies = true
-}
-
-resource "aws_iam_instance_profile" "workers" {
-  name_prefix = "${aws_eks_cluster.this.name}"
-  role        = "${lookup(var.worker_groups[count.index], "iam_role_id",  lookup(local.workers_group_defaults, "iam_role_id"))}"
-  count       = "${var.worker_group_count}"
 }
 
 resource "aws_iam_role_policy_attachment" "workers_AmazonEKSWorkerNodePolicy" {
