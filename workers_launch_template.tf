@@ -63,6 +63,7 @@ resource "aws_launch_template" "workers_launch_template" {
   network_interfaces {
     associate_public_ip_address = "${lookup(var.worker_groups_launch_template[count.index], "public_ip", local.workers_group_launch_template_defaults["public_ip"])}"
     security_groups             = ["${local.worker_security_group_id}", "${var.worker_additional_security_group_ids}", "${compact(split(",",lookup(var.worker_groups_launch_template[count.index],"additional_security_group_ids", local.workers_group_launch_template_defaults["additional_security_group_ids"])))}"]
+    delete_on_termination       = "${lookup(var.worker_groups_launch_template[count.index], "network_interfaces_delete_on_termination", local.workers_group_launch_template_defaults["network_interfaces_delete_on_termination"])}"
   }
 
   iam_instance_profile = {

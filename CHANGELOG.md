@@ -11,7 +11,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
-- Write your awesome addition here (by @you)
+- Added ability to specify delete_on_termination behavior for network interfaces for Launch Templates (by @skang0601)
 
 ### Changed
 
